@@ -1,5 +1,5 @@
 import {Buffer} from "buffer"
-
+import * as net from "net";
 
 
 const STATUS_TEXT: Record<number, string> = {
@@ -20,8 +20,9 @@ class SignalResponse {
     private socket
     private statusCode : number
     private headers: Record<string, string> = {}
+     sent: boolean = false
     
-    constructor(socket){
+    constructor(socket : net.Socket){
         this.socket = socket;
         this.statusCode = 200;
         this.headers["Content-Type"] = "text/plain";
@@ -36,6 +37,8 @@ class SignalResponse {
 
 
     send(data: string | Buffer){
+
+        if(this.sent) return;
 
           if( typeof data  === "string"){
            data  = Buffer.from(data);
@@ -56,6 +59,8 @@ class SignalResponse {
         this.socket.write(header);
         this.socket.write(data);
         this.socket.end();
+        this.sent = true;
+        
     }
 
 
@@ -69,7 +74,6 @@ class SignalResponse {
         this.headers["Content-Type"] = "application/json";
         this.send( JSON.stringify(content) );
     }
-
 
 
 }

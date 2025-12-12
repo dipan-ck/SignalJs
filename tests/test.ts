@@ -1,16 +1,35 @@
-import Signal from "../src";
+import app from "./signal";
+import SignalRequest from "../src/SignalRequest";
+import SignalResponse from "../src/SignalResponse";
+import router from "./authroute"
 
 
 
-const app = new Signal();
+// Register middleware once
+app.use("/", (req: SignalRequest, res: SignalResponse, next: () => void) => {
+    console.log("Middleware 1");
+    (req as any).message = "hello"
+    next();
+});
 
 
-
-app.createServer((req, res) => {
-    res.status(200).json({
-        message : "Hello World"
-    })
+app.use(async (req: SignalRequest, res: SignalResponse, next: () => void) => {
+    await new Promise(resolve => setTimeout(resolve, 3000));
+    (req as any).user = "dipan"
+    next();
 })
+
+
+
+app.use("/special", (req: SignalRequest, res: SignalResponse, next: () => void) => {
+    console.log("Special Middleware");
+    next();
+})
+
+
+
+
+app.use("/api/auth", router);
 
 
 
