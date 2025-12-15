@@ -114,6 +114,47 @@ class Routing {
     this.registerRoute(path, "PATCH", ...middlewaresAndHandler);
   }
 
+  mountRouter(basePath: string, router: Routing) {
+    // Get the base node where we want to mount the router
+    const baseNode = this.createRoute(basePath, this.RootRoutingNode);
+    
+    // Recursively merge the router's trie into the base node
+    this.mergeNodes(baseNode, router.RootRoutingNode);
+  }
+
+  private mergeNodes(target: TrieNode, source: TrieNode) {
+    // Merge middlewares
+    target.middlewares.push(...source.middlewares);
+
+    // Merge routes
+    for (const [method, route] of source.routes.entries()) {
+      if (target.routes.has(method)) {
+        throw new Error(`Route conflict: ${method} already exists at this path`);
+      }
+      target.routes.set(method, route);
+    }
+
+    // Merge static children
+    for (const [segment, childNode] of source.children.entries()) {
+      if (!target.children.has(segment)) {
+        target.children.set(segment, childNode);
+      } else {
+        // Recursively merge if child already exists
+        this.mergeNodes(target.children.get(segment)!, childNode);
+      }
+    }
+
+    // Merge param child
+    if (source.paramChild) {
+      if (!target.paramChild) {
+        target.paramChild = source.paramChild;
+      } else {
+        // Recursively merge param children
+        this.mergeNodes(target.paramChild, source.paramChild);
+      }
+    }
+  }
+
   getPathMiddlewareAndHandlers(req: SignalRequest): ExecutionResult {
     const segments = req.path.split("/").filter(Boolean);
     const method = req.method.toUpperCase() as HTTPMethod;

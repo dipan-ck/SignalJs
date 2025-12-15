@@ -1,5 +1,5 @@
 {
-  "name": "signal",
+  "name": "@dipan2003/signal",
   "version": "0.1.0",
   "description": "A lightweight, modern web framework built on Web Standards with built-in Zod validation and CORS support",
   "main": "./dist/index.js",
@@ -16,11 +16,13 @@
     "types": "./dist/index.d.ts"
   }
 },
-  "scripts": {
-    "dev": "bun run --watch src/index.ts",
-    "build": "tsc",
-    "prepublishOnly": "npm run build"
-  },
+"scripts": {
+  "dev": "bun --watch src/index.ts",
+  "build": "tsc",
+  "prepublishOnly": "npm run build",
+  "test": "bun --watch testing/index.ts"
+}
+,
   "keywords": [
     "web-framework",
     "typescript",

@@ -70,9 +70,9 @@ class SignalResponse {
 
 let cookie = `${name}=${encodeURIComponent(value)}`;
 
-
-
-
+    // Default path to "/" if not specified
+    const path = options?.path ?? "/";
+    cookie += `; Path=${path}`;
 
     if (options?.maxAge !== undefined) {
       cookie += `; Max-Age=${options.maxAge}`;
@@ -80,10 +80,6 @@ let cookie = `${name}=${encodeURIComponent(value)}`;
 
     if (options?.expires) {
       cookie += `; Expires=${options.expires.toUTCString()}`;
-    }
-
-    if (options?.path) {
-      cookie += `; Path=${options.path}`;
     }
 
     if (options?.domain) {

@@ -1,8 +1,10 @@
-import { z, ZodError, type ZodSchema } from "zod";
+import {type ZodSchema } from "zod";
 import http from "http";
 import Context from "./Context";
 import Routing, { type ExecutionResult, type HTTPMethod } from "./Routing";
 import type SignalRequest from "./SignalRequest";
+import { Readable } from "stream";
+
 
 type CorsOptions = {
   origin?: string | string[] | ((origin: string | undefined) => boolean);
@@ -29,10 +31,18 @@ class Signal {
 
   listen(port: number, cb?: () => void) {
     const server = http.createServer(async (req, res) => {
+      let body: string | null = null;
+      if (req.method !== "GET" && req.method !== "HEAD") {
+        const chunks: Buffer[] = [];
+        for await (const chunk of req) {
+          chunks.push(chunk);
+        }
+        body = Buffer.concat(chunks).toString();
+      }
       const request = new Request(`http://${req.headers.host}${req.url}`, {
         method: req.method,
         headers: req.headers as any,
-        body: req.method === "GET" || req.method === "HEAD" ? null : req,
+        body,
       });
 
       const response = await this.handle(request);
@@ -91,11 +101,16 @@ class Signal {
     return this.routing;
   }
 
-  use(pathOrMiddleware: string | Function, ...middlewares: Function[]) {
+  use(pathOrMiddleware: string | Function | Routing, ...middlewares: (Function | Routing)[]) {
     //if middleware is added using app.use(middleware) it will be treated as global middleware and added in globalMiddlewares array
     if (pathOrMiddleware instanceof Function) {
       this.globalMiddlewares.push(pathOrMiddleware);
       return;
+    }
+
+    // Check if we're mounting a router
+    if (pathOrMiddleware instanceof Routing) {
+      throw new Error("Cannot mount router without a path. Use app.use('/path', router)");
     }
 
     // if middleware is added using app.use("/path", middleware) it will be added to that path in the routing trie
@@ -104,8 +119,16 @@ class Signal {
       this.routing.RootRoutingNode
     );
 
-    //it was a path level middleware so we didnt add it in the route method map in the node but in the middlewares array of the node
-    node.middlewares.push(...middlewares);
+    // Check if any middleware is a Routing instance (sub-router)
+    for (const middleware of middlewares) {
+      if (middleware instanceof Routing) {
+        // Mount the router's routes at this path
+        this.routing.mountRouter(pathOrMiddleware, middleware);
+      } else {
+        // Regular middleware
+        node.middlewares.push(middleware);
+      }
+    }
   }
 
   getExecutionStack(req: SignalRequest): ExecutionResult {
@@ -203,19 +226,22 @@ cors(options: CorsOptions = {}) {
     maxAge = 86400,
   } = options;
 
-  this.use(async (c, next) => {
+  this.use(async (c: Context, next: () => Promise<void>) => {
     const requestOrigin = c.req.header("Origin");
     let allowOrigin: string | null = null;
 
     // Decide allowed origin
     if (typeof origin === "string") {
-      allowOrigin = origin;
+      // Allow wildcard or exact match
+      if (origin === "*" || origin === requestOrigin) {
+        allowOrigin = origin === "*" ? "*" : requestOrigin;
+      }
     } else if (Array.isArray(origin)) {
       if (requestOrigin && origin.includes(requestOrigin)) {
         allowOrigin = requestOrigin;
       }
     } else if (typeof origin === "function") {
-      if (origin(requestOrigin)) {
+      if (origin(requestOrigin!)) {
         allowOrigin = requestOrigin ?? null;
       }
     }
