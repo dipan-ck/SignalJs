@@ -13,6 +13,53 @@ A lightweight, modern web framework built on Web Standards. Signal uses the nati
 - **Dynamic Routing** - Support for URL parameters
 - **Clean API** - Simple and intuitive methods for building APIs
 
+## Why Signal is Fast
+
+Signal uses a **Trie (prefix tree) data structure** for route matching, making it significantly faster than traditional frameworks like Express.
+
+### How Traditional Routing Works (Express)
+
+Express checks routes **one by one** in the order you define them:
+
+```typescript
+// Express has to check each route sequentially
+app.get('/users', ...)           // Check 1
+app.get('/users/:id', ...)       // Check 2
+app.get('/posts', ...)           // Check 3
+app.get('/posts/:id', ...)       // Check 4
+app.get('/posts/:id/comments'...)// Check 5
+```
+
+**Problem:** If you have 100 routes and your request matches the 100th route, Express has to check all 99 routes before finding the right one. This is **O(n)** complexity - it gets slower as you add more routes.
+
+### How Signal's Trie Routing Works
+
+Signal builds a **tree structure** from your routes, allowing instant lookups:
+
+![Trie Routing Visualization](trie.png)
+
+Instead of checking routes one by one, Signal:
+1. **Splits the URL** into segments: `/users/123/posts` → `["users", "123", "posts"]`
+2. **Traverses the tree** following the path: `root → users → :id → posts`
+3. **Finds the match** in constant time based on the number of URL segments
+
+**Benefits:**
+- ✅ **Constant time lookup** - O(k) where k is the number of segments in the URL (typically 2-5)
+- ✅ **No wasted checks** - Never looks at routes that don't match the current path
+- ✅ **Scales efficiently** - Adding more routes doesn't slow down existing routes
+- ✅ **Smart parameter handling** - Dynamic segments (`:id`) are handled naturally in the tree
+
+**Real-world impact:**
+```
+Express with 100 routes:  1-100 checks per request
+Signal with 100 routes:   2-5 checks per request (based on URL depth)
+
+Express with 1000 routes: 1-1000 checks per request  
+Signal with 1000 routes:  2-5 checks per request (same speed!)
+```
+
+Signal's routing speed **doesn't degrade** as your application grows, making it ideal for large APIs with hundreds of endpoints.
+
 ## Installation
 
 ### npm (Node.js)
