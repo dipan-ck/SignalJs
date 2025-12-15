@@ -10,6 +10,8 @@ class SignalRequest {
   private _bodyUsed = false;
   private _jsonBody: any;
   private _textBody: string | undefined;
+  private _cookies?: Record<string, string>;
+
 
   constructor(req: Request) {
     this.raw = req;
@@ -37,6 +39,33 @@ class SignalRequest {
   header(name: string) {
     return this.raw.headers.get(name);
   }
+
+  // Get a specific cookie value
+cookie(name: string): string | undefined {
+  return this.cookies()[name];
+}
+
+  // Get all cookies as an object
+cookies(): Record<string, string> {
+  if (this._cookies) return this._cookies;
+
+  const cookieHeader = this.raw.headers.get("Cookie");
+  const result: Record<string, string> = {};
+
+  if (!cookieHeader) {
+    this._cookies = result;
+    return result;
+  }
+
+  for (const part of cookieHeader.split(";")) {
+    const [key, ...valueParts] = part.trim().split("=");
+    if (!key) continue;
+    result[key] = decodeURIComponent(valueParts.join("="));
+  }
+
+  this._cookies = result;
+  return result;
+}
 
   // Safe JSON body (cached)
   async json<T = any>(): Promise<T> {

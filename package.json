@@ -1,17 +1,54 @@
 {
-  "name": "signal-v2",
-  "module": "index.ts",
+  "name": "signal",
+  "version": "0.1.0",
+  "description": "A lightweight, modern web framework built on Web Standards with built-in Zod validation and CORS support",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "type": "module",
-  "private": true,
-  "devDependencies": {
-    "@types/bun": "latest"
-  },
-  "peerDependencies": {
-    "typescript": "^5"
-  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "exports": {
+  ".": {
+    "import": "./dist/index.js",
+    "types": "./dist/index.d.ts"
+  }
+},
   "scripts": {
     "dev": "bun run --watch src/index.ts",
-    "build": "tsc"
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "web-framework",
+    "typescript",
+    "fetch-api",
+    "web-standards",
+    "zod",
+    "validation",
+    "cors",
+    "http",
+    "routing"
+  ],
+  "engines": {
+  "node": ">=18"
+}
+,
+  "author": "Dipan Chakraborty",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dipan-ck/SignalJs"
+  },
+  "bugs": {
+    "url": "https://github.com/dipan-ck/SignalJs/issues"
+  },
+  "homepage": "https://github.com/dipan-ck/SignalJs#readme",
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5"
   },
   "dependencies": {
     "zod": "^4.2.0"
