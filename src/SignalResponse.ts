@@ -1,83 +1,81 @@
-import {Buffer} from "buffer"
-import * as net from "net";
 
-
-const STATUS_TEXT: Record<number, string> = {
-  200: "OK",
-  201: "Created",
-  204: "No Content",
-  400: "Bad Request",
-  401: "Unauthorized",
-  403: "Forbidden",
-  404: "Not Found",
-  500: "Internal Server Error",
-};
 
 
 
 class SignalResponse {
 
-    private socket
-    private statusCode : number
-    private headers: Record<string, string> = {}
-     sent: boolean = false
-    
-    constructor(socket : net.Socket){
-        this.socket = socket;
-        this.statusCode = 200;
-        this.headers["Content-Type"] = "text/plain";
+  private statusCode = 200;
+  private headers = new Headers();
+  sent = false;
+  response?: Response;
+
+
+
+  error(err: unknown, status = 500, message = "Internal Server Error") {
+  if (this.sent) {
+    throw new Error("Response already sent");
+  }
+
+  this.statusCode = status;
+  this.headers.set("Content-Type", "application/json");
+
+  this.response = new Response(
+    JSON.stringify({
+      error: message,
+    }),
+    {
+      status: status,
+      headers: this.headers,
     }
+  );
+
+  this.sent = true;
+
+  // IMPORTANT: throw so Signal catches it
+  throw err;
+}
 
 
 
-    status(code: number) {
-        this.statusCode = code;
-        return this;
-    }
+
+  status(code: number) {
+    this.statusCode = code;
+    return this;
+  }
 
 
-    send(data: string | Buffer){
 
-        if(this.sent) return;
-
-          if( typeof data  === "string"){
-           data  = Buffer.from(data);
-          }
-
-        this.statusCode  = this.statusCode || 200
-        this.headers["Content-Length"] = String(data.length);
-        this.headers["Connection"] = "close";
-
-        let header = `HTTP/1.1 ${this.statusCode} ${STATUS_TEXT[this.statusCode] || "OK"}\r\n`;
-
-        for(const [key, val] of Object.entries(this.headers)){
-            header += `${key}: ${val}\r\n`;
-        }
-        header += `\r\n`;
+  header(key: string, value: string) {
+    this.headers.set(key, value);
+    return this;
+  }
 
 
-        this.socket.write(header);
-        this.socket.write(data);
-        this.socket.end();
-        this.sent = true;
-        
-    }
+
+  json(data: unknown) {
+    this.headers.set("Content-Type", "application/json");
+    this.response = new Response(JSON.stringify(data), {
+      status: this.statusCode,
+      headers: this.headers
+    });
+    this.sent = true;
+    return this.response;
+  }
 
 
-    text(content: string){
-        this.headers["Content-Type"] = "text/plain";
-        this.send(content);
-    }
 
+  text(body: string) {
+    this.response = new Response(body, {
+      status: this.statusCode,
+      headers: this.headers
+    });
+    this.sent = true;
+    return this.response;
+  }
 
-    json(content: any){
-        this.headers["Content-Type"] = "application/json";
-        this.send( JSON.stringify(content) );
-    }
 
 
 }
 
 
-
-export default SignalResponse;
+export default SignalResponse;  

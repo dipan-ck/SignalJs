@@ -1,5 +1,5 @@
 {
-  "name": "http",
+  "name": "signal-v2",
   "module": "index.ts",
   "type": "module",
   "private": true,
@@ -9,10 +9,11 @@
   "peerDependencies": {
     "typescript": "^5"
   },
-
-  "scripts" : {
-    "dev" : "bun --watch index.ts",
-    "test" : "bun --watch tests/test.ts"
+  "scripts": {
+    "dev": "bun run --watch src/index.ts",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "zod": "^4.2.0"
   }
-
 }

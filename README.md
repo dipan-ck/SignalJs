@@ -1,4 +1,4 @@
-# http
+# signal-v2
 
 To install dependencies:
 

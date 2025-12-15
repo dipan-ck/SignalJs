@@ -1,145 +1,95 @@
-import * as net from "net";
-import HttpParser from "./parser";
-import SignalRequest from "./SignalRequest";
-import SignalResponse from "./SignalResponse";
-import Routes from "./Routes";
+import z from "zod";
+import type Context from "./Context";
+import Signal from "./Signal";
+import { ZodSchema, ZodError } from "zod/v3";
 
-// Define types
-export type HttpHeaders = Record<string, string>;
+const app = new Signal();
 
-export interface ParsedRequest {
-  method: string;
-  path: string;
-  query?: Record<string, string>; // optional query parameters
-  version: string;
-  headers: HttpHeaders;
-  body?: string;
-}
+const router = app.router();
 
+ app.logRequests();
 
-
-
-const httpParser = new HttpParser();
-
-
-
-type MiddlewareItem = {
-  path?: string;
-  fn: (req: SignalRequest, res: SignalResponse, next: () => void) => void;
-};
-
-
-
-class Signal {
-  private server: net.Server;
-    private middlewares: MiddlewareItem[] = [];
-
-  constructor() {
-    this.server = net.createServer();
-  }
-
-  createServer = () => {
-    this.server = net.createServer((socket) => {
-      socket.on("data",async (data) => {
-
-        const req : string = data.toString();
-
-       const signalRequest = httpParser.parseHeader(req)
-       const signalResponse = new SignalResponse(socket);
-
-      await this.next(signalRequest, signalResponse, 0);
-
+app.onError((err, c) => {
+  if (err instanceof ZodError) {
+    return c.res
+      .status(400)
+      .json({
+        error: "Validation failed",
+        issues: err.issues.map(issue => ({
+          field: issue.path.join("."),
+          message: issue.message,
+        })),
       });
-    });
-  };
-
-
-
-  listen = (port: number, cb: () => void) => {
-
-     this.createServer();
-    this.server.listen(port, cb);
-  };
-
-  
-async next(req: SignalRequest, res: SignalResponse, index: number = 0) : Promise<void> {
-  if (index >= this.middlewares.length || res.sent) return;
-
-  const middleware = this.middlewares[index];
-  if (!middleware) return;
-
-  const { path, fn } = middleware;
-  // Match if no path specified, or if paths match exactly, or if request path starts with middleware path
-  const shouldExecute = !path || req.path === path || req.path.startsWith(path + "/") || (path !== "/" && req.path === path);
-
-  if (shouldExecute) {
-    // Wrap middleware execution into a promise
-    await new Promise<void>((resolve) => {
-      fn(req, res, () => resolve());
-    });
-
-    return this.next(req, res, index + 1);
   }
 
-  return this.next(req, res, index + 1);
-}
-
-
-
-router(){
-  return new Routes();
-}
+  console.error(err);
+  return c.res
+    .status(500)
+    .json({ error: "Internal Server Error" });
+});
 
 
 
 
-use(
-  pathOrFnOrRouter: string | ((req: SignalRequest, res: SignalResponse, next: () => void) => void) | any,
-  maybeFnOrRouter?: ((req: SignalRequest, res: SignalResponse, next: () => void) => void) | any
-) {
+
+ const userSchema = z.object({
+    name: z.string(),
+    age: z.number().min(7, "Age must be at least 6"),
+ });
+
+
+router.POST("/hello", app.validate(userSchema), async (c: Context) => {
+    console.log(c.req.body);
+    
+    c.res.text("Hello, World!");
+});
 
 
 
-if (typeof pathOrFnOrRouter === "string" && maybeFnOrRouter instanceof Routes) {
-    const prefix = pathOrFnOrRouter;
 
-    for (const route of maybeFnOrRouter.routes) {
-        // Use forward slashes for HTTP paths, not OS-specific path separators
-        const fullPath = (prefix   + route.path).replace(/\/+/g, "/");
-      
-        
-
-        this.middlewares.push({
-            path: fullPath,
-            fn: async (req, res, next) => {
-                if (req.method === route.method) {
-                    for (const handler of route.handlers) {
-                        if (res.sent) break;
-                        await handler(req, res, next);
-                    }
-                    // Call next() after handlers execute (if response not sent)
-                    if (!res.sent) next();
-                } else {
-                    next();
-                }
-            }
-        });
-    }
-
-    return;
-}
+// router.GET("/api/test", async (c: Context) => {
+    
+//     c.res.json({ message: "API Test Route" });
+// });
 
 
 
-    if (typeof pathOrFnOrRouter === 'function') {
-      this.middlewares.push({ fn: pathOrFnOrRouter });
-    } else {
-      this.middlewares.push({ path: pathOrFnOrRouter, fn: maybeFnOrRouter! });
-    }
-  }
+// router.GET("/api/test/:id/name/:class", (c)=>{
+//     const id = c.req.params.id;
+//     console.log(c.req.params);
+    
+//     c.res.json({ message: `You requested ID: ${id}` });
+// })
+
+
+// router.POST("/api/test/v2", async(c, next)=>{ 
+//     console.log("for route level middleware");
+//     await next();
+//  }, async(c)=> {
+//     const data = await c.req.json();
+//     console.log(data);
+    
+//     c.res.json({ received: data });
+// })
 
 
 
-}
+// app.use("/api", async (c, next) => {
+//     console.log("API Middleware");
+//     await next();
+// });
 
-export default Signal;
+
+
+
+Bun.serve({
+    port: 8000,
+    fetch: app.handle.bind(app),
+});
+
+
+
+
+// app.listen(8000, () => {
+//     console.log("Server is listening on port 8000");
+// } )

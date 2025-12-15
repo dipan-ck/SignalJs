@@ -1,58 +1,64 @@
 class SignalRequest {
-  method: string;
+  private raw: Request;
+  private url: URL;
+
   path: string;
-  version: string;
-  headers: Record<string, string>;
-  query: Record<string, string>;
-  body: string | undefined;
+  query: URLSearchParams;
+  params: Record<string, string> = {}
+  body: any;
 
-  constructor({
-    method,
-    path,
-    version,
-    headers,
-    query,
-    body,
-  }: {
-    method: string;
-    path: string;
-    version: string;
-    headers: Record<string, string>;
-    query: Record<string, string>;
-    body?: string;
-  }) {
-    this.method = method;
-    this.path = path;
-    this.version = version;
-    this.headers = headers;
-    this.query = query;
-    this.body = body;
+  private _bodyUsed = false;
+  private _jsonBody: any;
+  private _textBody: string | undefined;
+
+  constructor(req: Request) {
+    this.raw = req;
+    this.url = new URL(req.url);
+    this.path = this.url.pathname;
+    this.query = this.url.searchParams;
+    this.params = {};
   }
 
-  getHeader(header: string) {
-    return this.headers[header.toLocaleLowerCase()];
+  // HTTP method
+  get method() {
+    return this.raw.method;
   }
 
-  queryParams(query: string) {
-    return this.query[query.toLocaleLowerCase()];
+  // Full URL
+  get origin() {
+    return this.raw.url;
   }
 
-  json() {
-    if (this.body) {
-      if (this.headers["content-type"] !== "application/json") {
-        throw new Error("Content-Type is not application/json");
-      }
-      return JSON.parse(this.body);
-    }
+  // Headers
+  get headers() {
+    return this.raw.headers;
+  }
 
-    throw new Error("No body found");
+  header(name: string) {
+    return this.raw.headers.get(name);
+  }
+
+  // Safe JSON body (cached)
+  async json<T = any>(): Promise<T> {
+    if (this._bodyUsed) return this._jsonBody;
+    this._bodyUsed = true;
+    this._jsonBody = await this.raw.json();
+    return this._jsonBody;
+  }
+
+  // Safe text body (cached)
+  async text(): Promise<string> {
+    if (this._bodyUsed) return this._textBody!;
+    this._bodyUsed = true;
+    this._textBody = await this.raw.text();
+    return this._textBody;
+  }
+
+  setParam(key: string, value: string){
+    this.params[key] = value;
   }
 
 
-  
-  text() {
-    return this.body;
-  }
 }
 
 export default SignalRequest;
